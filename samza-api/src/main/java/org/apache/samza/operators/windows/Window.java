@@ -36,7 +36,6 @@ import org.apache.samza.operators.triggers.Trigger;
  *
  * <p> A {@link Window} is said to be as "keyed" when the incoming {@link org.apache.samza.operators.MessageStream}
  * is first grouped based on the provided key, and windowing is applied on the grouped stream.
- * <pre>
  *
  *                                     window wk1 (with its triggers)
  *                                      +--------------------------------+
@@ -61,7 +60,7 @@ import org.apache.samza.operators.triggers.Trigger;
  *                                      |          |           |         |
  *                                      +----------+-----------+---------+
  *
- *</pre>
+ *
  * <p> Use {@link Windows} to create various windows and {@link org.apache.samza.operators.triggers.Triggers}
  * to create their triggers.
  *
