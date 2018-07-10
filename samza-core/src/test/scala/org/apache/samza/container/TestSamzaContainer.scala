@@ -29,6 +29,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
@@ -170,6 +171,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor],
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -253,6 +255,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor]
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -335,6 +338,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor],
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -416,6 +420,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor],
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -494,6 +499,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     val containerContext = new SamzaContainerContext("0", config, Set[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor],
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -573,6 +579,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      mock[SideInputProcessor],
       taskName,
       config,
       new TaskInstanceMetrics,

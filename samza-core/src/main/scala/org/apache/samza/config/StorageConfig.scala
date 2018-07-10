@@ -76,6 +76,10 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
     conf.asScala.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
   }
 
+  def getSideInputs(storeName: String): List[String] = {
+    new JavaStorageConfig(config).getSideInputs(storeName)
+  }
+
   /**
     * Build a map of storeName to changeLogDeleteRetention for all of the stores.
     * @return a map from storeName to the changeLogDeleteRetention of the store in ms.

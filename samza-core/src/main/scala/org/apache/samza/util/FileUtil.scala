@@ -33,7 +33,18 @@ object FileUtil {
     * @param file The file handle to write to
     * @param data The data to be written to the file
     * */
-  def writeWithChecksum(file: File, data: String) = {
+  def writeStringWithChecksum(file: File, data: String) = {
+    writeWithChecksum(file, data)
+  }
+
+  /**
+    * Writes checksum & data to a file
+    * Checksum is pre-fixed to the data and is a 32-bit long type data.
+    *
+    * @param file file handle to write to
+    * @param data data to be written to the file
+    */
+  def writeWithChecksum(file: File, data: Object) = {
     val checksum = getChecksum(data)
     var oos: ObjectOutputStream = null
     var fos: FileOutputStream = null
@@ -41,7 +52,7 @@ object FileUtil {
       fos = new FileOutputStream(file)
       oos = new ObjectOutputStream(fos)
       oos.writeLong(checksum)
-      oos.writeUTF(data)
+      oos.writeObject(data)
     } finally {
       oos.close()
       fos.close()
@@ -51,7 +62,19 @@ object FileUtil {
   /**
     * Reads from a file that has a checksum prepended to the data
     * @param file The file handle to read from
+    *
+    * @return data from the file as [[String]]
     * */
+  def readStringWithChecksum(file: File): String = {
+    readWithChecksum(file).asInstanceOf[String]
+  }
+
+  /**
+    * Reads froma file that has a checksum prepended to the data
+    * @param file file handle to read from
+    *
+    * @return data from the file as [[Object]]
+    */
   def readWithChecksum(file: File) = {
     var fis: FileInputStream = null
     var ois: ObjectInputStream = null
@@ -59,7 +82,7 @@ object FileUtil {
       fis = new FileInputStream(file)
       ois = new ObjectInputStream(fis)
       val checksumFromFile = ois.readLong()
-      val data = ois.readUTF()
+      val data = ois.readObject()
       if(checksumFromFile == getChecksum(data)) {
         data
       } else {
@@ -99,6 +122,19 @@ object FileUtil {
   def getChecksum(data: String) = {
     val crc = new CRC32
     crc.update(data.getBytes)
+    crc.getValue
+  }
+
+  /**
+    * Generates the CRC32 checksum code for any given data
+    *
+    * @param data data for which checksum is generated
+    *
+    * @return long value representing the checksum
+    */
+  def getChecksum(data: Object) = {
+    val crc = new CRC32
+    crc.update(data.toString.getBytes)
     crc.getValue
   }
 }

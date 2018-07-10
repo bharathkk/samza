@@ -26,6 +26,7 @@ import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.config.{Config, MapConfig}
 import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
+import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemAdmin
@@ -77,6 +78,7 @@ class TestTaskInstance {
     val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       task,
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       config,
       new TaskInstanceMetrics,
@@ -175,6 +177,7 @@ class TestTaskInstance {
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
     val taskInstance = new TaskInstance(
       task,
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       config,
       taskMetrics,
@@ -232,6 +235,7 @@ class TestTaskInstance {
     val taskMetrics = new TaskInstanceMetrics(registry = registry)
     val taskInstance = new TaskInstance(
       task,
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       config,
       taskMetrics,
@@ -293,6 +297,7 @@ class TestTaskInstance {
 
     val taskInstance = new TaskInstance(
       task,
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       config,
       metrics,
@@ -335,6 +340,7 @@ class TestTaskInstance {
 
     val taskInstance = new TaskInstance(
       task,
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       config,
       metrics,
@@ -377,7 +383,8 @@ class TestTaskInstance {
     val mockOrder = inOrder(offsetManager, collector, storageManager)
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,
@@ -418,7 +425,8 @@ class TestTaskInstance {
     val offsetManager = Mockito.mock(classOf[OffsetManager])
 
     val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
+      Mockito.mock(classOf[StreamTask]),
+      Mockito.mock(classOf[SideInputProcessor]),
       taskName,
       new MapConfig,
       new TaskInstanceMetrics,

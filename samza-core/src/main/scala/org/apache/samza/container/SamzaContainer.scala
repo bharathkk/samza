@@ -43,9 +43,10 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.processors.SideInputProcessorFactory
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.{StorageEngineFactory, TaskStorageManager}
+import org.apache.samza.storage.{SideInputStorageManager, StorageEngineFactory, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
@@ -334,6 +335,14 @@ object SamzaContainer extends Logging {
 
     info("Got intermediate streams: %s" format intermediateStreams)
 
+
+    val sideInputSystemStreams = config.getStoreNames
+    .map(name => (name, config.getSideInputs(name))).toMap
+    .filter(entry => entry._2.nonEmpty)
+    .mapValues(sideInputs => sideInputs.map(Util.getSystemStreamFromNames _))
+
+    info("Got side input streams: %s" format sideInputSystemStreams)
+
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
         val systemStream = config.streamIdToSystemStream(streamId)
@@ -487,6 +496,10 @@ object SamzaContainer extends Logging {
         case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
       }
 
+      val sideInputProcessor = config.getSideInputProcessorFactory()
+        .map(sideInputFactoryName => Util.getObj(sideInputFactoryName, classOf[SideInputProcessorFactory]))
+        .orNull
+
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
 
       val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
@@ -557,6 +570,10 @@ object SamzaContainer extends Logging {
 
       info("Got task stores: %s" format taskStores)
 
+      val storesToSSPs = sideInputSystemStreams
+        .mapValues(sideInputs => systemStreamPartitions.filter(ssp => sideInputs.contains(ssp.getSystemStream)))
+
+
       val storageManager = new TaskStorageManager(
         taskName = taskName,
         taskStores = taskStores,
@@ -571,6 +588,16 @@ object SamzaContainer extends Logging {
         new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
         new SystemClock)
 
+      val sideInputStorageManager = new SideInputStorageManager(
+        taskName,
+        taskInstanceMetrics.registry,
+        streamMetadataCache,
+        taskStores,
+        storesToSSPs,
+        systemAdmins,
+        config,
+        new SystemClock)
+
       val tableManager = new TableManager(config, serdes.asJava)
 
       info("Got table manager")
@@ -582,8 +609,11 @@ object SamzaContainer extends Logging {
 
       info("Retrieved SystemStreamPartitions " + systemStreamPartitions + " for " + taskName)
 
+      val sideInputSSPsToStoreMapping = storesToSSPs.mapV
+
       def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
           task = task,
+          sideInputProcessor,
           taskName = taskName,
           config = config,
           metrics = taskInstanceMetrics,

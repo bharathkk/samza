@@ -34,7 +34,7 @@ class TestFileUtil {
   @Test
   def testWriteDataToFile() {
     // Invoke test
-    FileUtil.writeWithChecksum(file, data)
+    FileUtil.writeStringWithChecksum(file, data)
 
     // Check that file exists
     assertTrue("File was not created!", file.exists())

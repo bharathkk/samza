@@ -26,7 +26,7 @@ import org.apache.samza.config.StorageConfig
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
-import org.apache.samza.util.{Clock, FileUtil, Logging, Util}
+import org.apache.samza.util.{Clock, FileUtil, Logging}
 
 import scala.collection.JavaConverters._
 
@@ -197,7 +197,7 @@ class TaskStorageManager(
     val offsetFileRef = new File(loggedStoragePartitionDir, offsetFileName)
     if (offsetFileRef.exists()) {
       info("Found offset file in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
-      offset = FileUtil.readWithChecksum(offsetFileRef)
+      offset = FileUtil.readStringWithChecksum(offsetFileRef)
     } else {
       info("No offset file found in logged storage partition directory: %s" format loggedStoragePartitionDir.toPath.toString)
     }
@@ -352,7 +352,7 @@ class TaskStorageManager(
         val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
-          FileUtil.writeWithChecksum(offsetFile, newestOffset)
+          FileUtil.writeStringWithChecksum(offsetFile, newestOffset)
           debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
         } else {
           //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file

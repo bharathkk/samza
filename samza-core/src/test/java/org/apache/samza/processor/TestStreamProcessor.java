@@ -28,6 +28,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.processors.SideInputProcessor;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.junit.After;
@@ -108,7 +109,8 @@ public class TestStreamProcessor {
             containerStop.countDown();
             return null;
           }).when(mockRunLoop).shutdown();
-        container = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, mock(StreamTask.class));
+        container =
+            StreamProcessorTestUtils.getDummyContainer(mockRunLoop, mock(StreamTask.class), mock(SideInputProcessor.class));
       }
       return container;
     }
@@ -231,7 +233,8 @@ public class TestStreamProcessor {
         return null;
       }).when(failingRunLoop).run();
 
-    SamzaContainer mockContainer = StreamProcessorTestUtils.getDummyContainer(failingRunLoop, mock(StreamTask.class));
+    SamzaContainer mockContainer = StreamProcessorTestUtils.getDummyContainer(
+        failingRunLoop, mock(StreamTask.class), mock(SideInputProcessor.class));
     final CountDownLatch processorListenerFailed = new CountDownLatch(1);
 
     TestableStreamProcessor processor = new TestableStreamProcessor(

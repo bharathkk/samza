@@ -274,7 +274,7 @@ class TestTaskStorageManager extends MockitoSugar {
   @Test
   def testLoggedStoreDirsWithOffsetFileAreNotDeletedInCleanBaseDirs() {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName), "OFFSET")
-    FileUtil.writeWithChecksum(offsetFilePath, "100")
+    FileUtil.writeStringWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, true)
@@ -296,7 +296,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val storeDirectory = TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
     val offsetFile = new File(storeDirectory, "OFFSET")
     offsetFile.createNewFile()
-    FileUtil.writeWithChecksum(offsetFile, "Test Offset Data")
+    FileUtil.writeStringWithChecksum(offsetFile, "Test Offset Data")
     offsetFile.setLastModified(0)
     val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
       .addStore(loggedStore, true)
@@ -315,7 +315,7 @@ class TestTaskStorageManager extends MockitoSugar {
   @Test
   def testOffsetFileIsRemovedInCleanBaseDirsForInMemoryLoggedStore() {
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName), "OFFSET")
-    FileUtil.writeWithChecksum(offsetFilePath, "100")
+    FileUtil.writeStringWithChecksum(offsetFilePath, "100")
 
     val taskStorageManager = new TaskStorageManagerBuilder()
       .addStore(loggedStore, false)
@@ -430,7 +430,7 @@ class TestTaskStorageManager extends MockitoSugar {
     val partition = new Partition(0)
 
     val offsetFilePath = new File(TaskStorageManager.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName) + File.separator + "OFFSET")
-    FileUtil.writeWithChecksum(offsetFilePath, "100")
+    FileUtil.writeStringWithChecksum(offsetFilePath, "100")
 
     val mockSystemAdmin = mock[SystemAdmin]
     var mockSspMetadata = Map("testStream" -> new SystemStreamMetadata("testStream" , Map(partition -> new SystemStreamPartitionMetadata("20", "139", "140")).asJava))
@@ -556,7 +556,7 @@ class TestTaskStorageManager extends MockitoSugar {
     if (writeOffsetFile) {
       val offsetFile = new File(storeDirectory, "OFFSET")
       if (fileOffset != null) {
-        FileUtil.writeWithChecksum(offsetFile, fileOffset)
+        FileUtil.writeStringWithChecksum(offsetFile, fileOffset)
       } else {
         // Write garbage to produce a null result when it's read
         val fos = new FileOutputStream(offsetFile)

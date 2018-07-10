@@ -23,6 +23,7 @@ import java.util.Collections
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container._
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.processors.SideInputProcessor
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system._
@@ -30,7 +31,7 @@ import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
 
 
 object StreamProcessorTestUtils {
-  def getDummyContainer(mockRunloop: RunLoop, streamTask: StreamTask) = {
+  def getDummyContainer(mockRunloop: RunLoop, streamTask: StreamTask, sideInputProcessor: SideInputProcessor) = {
     val config = new MapConfig
     val taskName = new TaskName("taskName")
     val adminMultiplexer = new SystemAdmins(config)
@@ -44,6 +45,7 @@ object StreamProcessorTestUtils {
     val containerContext = new SamzaContainerContext("0", config, Collections.singleton[TaskName](taskName), new MetricsRegistryMap)
     val taskInstance: TaskInstance = new TaskInstance(
       streamTask,
+      sideInputProcessor,
       taskName,
       config,
       new TaskInstanceMetrics,

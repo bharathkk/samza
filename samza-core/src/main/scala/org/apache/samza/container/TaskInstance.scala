@@ -28,7 +28,9 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.processors.SideInputProcessor
+import org.apache.samza.storage.{SideInputStorageManager, TaskStorageManager}
+import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -40,6 +42,7 @@ import scala.collection.Map
 
 class TaskInstance(
   val task: Any,
+  val sideInputProcessor: SideInputProcessor,
   val taskName: TaskName,
   config: Config,
   val metrics: TaskInstanceMetrics,
@@ -49,6 +52,7 @@ class TaskInstance(
   containerContext: SamzaContainerContext,
   val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
+  sideInputStorageManager: SideInputStorageManager = null,
   tableManager: TableManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
@@ -72,60 +76,69 @@ class TaskInstance(
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
+  val sideInputSsp2StoreMapping: Map[SystemStreamPartition, String] = {
+
+  }
+
   val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
 
   val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
 
   def registerMetrics {
-    debug("Registering metrics for taskName: %s" format taskName)
+    debug("Registering metrics for task name: %s" format taskName)
 
     reporters.values.foreach(_.register(metrics.source, metrics.registry))
   }
 
   def registerOffsets {
-    debug("Registering offsets for taskName: %s" format taskName)
+    debug("Registering offsets for task name: %s" format taskName)
 
     offsetManager.register(taskName, systemStreamPartitions)
   }
 
   def startStores {
     if (storageManager != null) {
-      debug("Starting storage manager for taskName: %s" format taskName)
+      debug("Starting storage manager for task name: %s" format taskName)
 
       storageManager.init
     } else {
-      debug("Skipping storage manager initialization for taskName: %s" format taskName)
+      debug("Skipping storage manager initialization for task name: %s" format taskName)
+    }
+
+    if (sideInputStorageManager != null) {
+      debug("Starting side input storage manager for task name: %s" format taskName)
+      sideInputStorageManager.init
     }
   }
 
   def startTableManager {
     if (tableManager != null) {
-      debug("Starting table manager for taskName: %s" format taskName)
+      debug("Starting table manager for task name: %s" format taskName)
 
       tableManager.init(containerContext, context)
     } else {
-      debug("Skipping table manager initialization for taskName: %s" format taskName)
+      debug("Skipping table manager initialization for task name %s" format taskName)
     }
   }
 
   def initTask {
     if (isInitableTask) {
-      debug("Initializing task for taskName: %s" format taskName)
+      debug("Initializing task for task name %s" format taskName)
 
       task.asInstanceOf[InitableTask].init(config, context)
     } else {
-      debug("Skipping task initialization for taskName: %s" format taskName)
+      debug("Skipping task initialization for task name %s" format taskName)
     }
   }
 
   def registerProducers {
-    debug("Registering producers for taskName: %s" format taskName)
+    debug("Registering producers for task name %s" format taskName)
 
     collector.register
   }
 
   def registerConsumers {
-    debug("Registering consumers for taskName: %s" format taskName)
+    debug("Registering consumers for task name %s" format taskName)
 
     systemStreamPartitions.foreach(systemStreamPartition => {
       val offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
@@ -143,31 +156,41 @@ class TaskInstance(
     callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
-    if (!ssp2CaughtupMapping.getOrElse(envelope.getSystemStreamPartition,
-      throw new SamzaException(envelope.getSystemStreamPartition + " is not registered!"))) {
+    val incomingSSP = envelope.getSystemStreamPartition
+
+    if (!ssp2CaughtupMapping.getOrElse(incomingSSP,
+      throw new SamzaException(incomingSSP + " is not registered!"))) {
       checkCaughtUp(envelope)
     }
 
-    if (ssp2CaughtupMapping(envelope.getSystemStreamPartition)) {
+    if (ssp2CaughtupMapping(incomingSSP)) {
       metrics.messagesActuallyProcessed.inc
 
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
-        format (taskName, envelope.getSystemStreamPartition))
+        format (taskName, incomingSSP))
 
-      if (isAsyncTask) {
-        exceptionHandler.maybeHandle {
-          val callback = callbackFactory.createCallback()
-          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-        }
+      if (sideInputSsp2StoreMapping.contains(incomingSSP)) {
+        val storeName = sideInputSsp2StoreMapping(incomingSSP)
+        sideInputProcessor.process(
+          envelope,
+          storageManager.apply(storeName).asInstanceOf[KeyValueStore[Object, Object]])
+        sideInputStorageManager.updateLastProcessedOffset(incomingSSP, envelope.getOffset)
       } else {
-        exceptionHandler.maybeHandle {
-         task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+        if (isAsyncTask) {
+          exceptionHandler.maybeHandle {
+            val callback = callbackFactory.createCallback()
+            task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
+          }
+        } else {
+          exceptionHandler.maybeHandle {
+            task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+          }
+
+          trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
+            format (taskName, incomingSSP, envelope.getOffset))
+
+          offsetManager.update(taskName, incomingSSP, envelope.getOffset)
         }
-
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-          format (taskName, envelope.getSystemStreamPartition, envelope.getOffset))
-
-        offsetManager.update(taskName, envelope.getSystemStreamPartition, envelope.getOffset)
       }
     }
   }
@@ -182,7 +205,7 @@ class TaskInstance(
 
   def window(coordinator: ReadableCoordinator) {
     if (isWindowableTask) {
-      trace("Windowing for taskName: %s" format taskName)
+      trace("Windowing for task name %s" format taskName)
 
       metrics.windows.inc
 
@@ -193,7 +216,7 @@ class TaskInstance(
   }
 
   def timer(coordinator: ReadableCoordinator) {
-    trace("Timer for taskName: %s" format taskName)
+    trace("Timer for task name %s" format taskName)
 
     exceptionHandler.maybeHandle {
       context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
@@ -207,18 +230,20 @@ class TaskInstance(
 
     val checkpoint = offsetManager.buildCheckpoint(taskName)
 
-    trace("Flushing producers for taskName: %s" format taskName)
-
+    trace("Flushing producers for task name %s" format taskName)
     collector.flush
 
-    trace("Flushing state stores for taskName: %s" format taskName)
-
+    trace("Flushing state stores for task name %s" format taskName)
     if (storageManager != null) {
       storageManager.flush
     }
 
-    trace("Checkpointing offsets for taskName: %s" format taskName)
+    trace ("Flushing side input stores for task name %s" format taskName)
+    if (sideInputStorageManager != null) {
+      sideInputStorageManager.flush
+    }
 
+    trace("Checkpointing offsets for task name %s" format taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
     if (checkpoint != null) {
@@ -233,31 +258,36 @@ class TaskInstance(
 
   def shutdownTask {
     if (task.isInstanceOf[ClosableTask]) {
-      debug("Shutting down stream task for taskName: %s" format taskName)
+      debug("Shutting down stream task for task name %s" format taskName)
 
       task.asInstanceOf[ClosableTask].close
     } else {
-      debug("Skipping stream task shutdown for taskName: %s" format taskName)
+      debug("Skipping stream task shutdown for task name %s" format taskName)
     }
   }
 
   def shutdownStores {
     if (storageManager != null) {
-      debug("Shutting down storage manager for taskName: %s" format taskName)
+      debug("Shutting down storage manager for task name: %s" format taskName)
 
       storageManager.stop
     } else {
-      debug("Skipping storage manager shutdown for taskName: %s" format taskName)
+      debug("Skipping storage manager shutdown for task name: %s" format taskName)
+    }
+
+    if (sideInputStorageManager != null) {
+      debug("Shutting down side input storage manager for task name: %s" format taskName)
+      sideInputStorageManager.stop
     }
   }
 
   def shutdownTableManager {
     if (tableManager != null) {
-      debug("Shutting down table manager for taskName: %s" format taskName)
+      debug("Shutting down table manager for task name %s" format taskName)
 
       tableManager.close
     } else {
-      debug("Skipping table manager shutdown for taskName: %s" format taskName)
+      debug("Skipping table manager shutdown for task name %s" format taskName)
     }
   }
 
