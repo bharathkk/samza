@@ -52,6 +52,10 @@ public class TaskFactoryUtil {
     return createStreamOperatorTaskFactory(specGraph, contextManager);
   }
 
+  public static Object createAsyncTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return createAsyncStreamOperatorTaskFactory(specGraph, contextManager);
+  }
+
   /**
    * This method creates a task factory class based on the configuration
    *
@@ -64,6 +68,10 @@ public class TaskFactoryUtil {
 
   private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
     return () -> new StreamOperatorTask(specGraph, contextManager);
+  }
+
+  private static AsyncStreamTaskFactory createAsyncStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
+    return () -> new AsyncStreamOperatorTask(specGraph, contextManager);
   }
 
   /**

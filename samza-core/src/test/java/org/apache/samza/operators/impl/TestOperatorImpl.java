@@ -89,7 +89,7 @@ public class TestOperatorImpl {
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
     opImpl.onMessage(mock(Object.class), mockCollector, mockCoordinator);
 
-    // verify that it propagates its handleMessage results to next operators
+    // verify that it propagates its handleAsyncMessage results to next operators
     verify(mockNextOpImpl1, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
     verify(mockNextOpImpl2, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
   }

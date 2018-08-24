@@ -323,7 +323,8 @@ public class LocalApplicationRunner extends AbstractApplicationRunner {
       Config config,
       StreamGraphSpec graphBuilder,
       StreamProcessorLifecycleListener listener) {
-    Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
+//    Object taskFactory = TaskFactoryUtil.createTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
+    Object taskFactory = TaskFactoryUtil.createAsyncTaskFactory(graphBuilder.getOperatorSpecGraph(), graphBuilder.getContextManager());
     return getStreamProcessorInstance(config, taskFactory, listener);
   }
 

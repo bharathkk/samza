@@ -20,6 +20,10 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.AsyncFilterFunction;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
+import org.apache.samza.operators.functions.AsyncMapFunction;
+import org.apache.samza.operators.functions.AsyncSinkFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -70,6 +74,20 @@ public class OperatorSpecs {
   }
 
   /**
+   * Creates a {@link AsyncStreamOperatorSpec} for {@link AsyncMapFunction}
+   *
+   * @param mapFn  the map function
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
+   * @return  the {@link AsyncStreamOperatorSpec}
+   */
+  public static <M, OM> AsyncStreamOperatorSpec<M, OM> createAsyncMapOperatorSpec(
+      AsyncMapFunction<? super M, ? extends OM> mapFn, String opId) {
+    return new AsyncMapOperatorSpec<>((AsyncMapFunction<M, OM>) mapFn, opId);
+  }
+
+  /**
    * Creates a {@link StreamOperatorSpec} for {@link FilterFunction}
    *
    * @param filterFn  the transformation function
@@ -80,6 +98,19 @@ public class OperatorSpecs {
   public static <M> StreamOperatorSpec<M, M> createFilterOperatorSpec(
       FilterFunction<? super M> filterFn, String opId) {
     return new FilterOperatorSpec<>((FilterFunction<M>) filterFn, opId);
+  }
+
+  /**
+   * Creates a {@link AsyncStreamOperatorSpec} for {@link AsyncFilterFunction}
+   *
+   * @param filterFn  the transformation function
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @return  the {@link AsyncStreamOperatorSpec}
+   */
+  public static <M> AsyncStreamOperatorSpec<M, M> createAsyncFilterOperatorSpec(
+      AsyncFilterFunction<? super M> filterFn, String opId) {
+    return new AsyncFilterOperatorSpec<>((AsyncFilterFunction<M>) filterFn, opId);
   }
 
   /**
@@ -97,6 +128,20 @@ public class OperatorSpecs {
   }
 
   /**
+   * Creates a {@link AsyncStreamOperatorSpec} for {@link AsyncFlatMapFunction}.
+   *
+   * @param flatMapFn  the transformation function
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
+   * @return  the {@link AsyncStreamOperatorSpec}
+   */
+  public static <M, OM> AsyncStreamOperatorSpec<M, OM> createAsyncFlatMapOperatorSpec(
+      AsyncFlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
+    return new AsyncFlatMapOperatorSpec<>((AsyncFlatMapFunction<M, OM>) flatMapFn, opId);
+  }
+
+  /**
    * Creates a {@link SinkOperatorSpec} for the sink operator.
    *
    * @param sinkFn  the sink function provided by the user
@@ -106,6 +151,18 @@ public class OperatorSpecs {
    */
   public static <M> SinkOperatorSpec<M> createSinkOperatorSpec(SinkFunction<? super M> sinkFn, String opId) {
     return new SinkOperatorSpec<>((SinkFunction<M>) sinkFn, opId);
+  }
+
+  /**
+   * Creates a {@link AsyncSinkOperatorSpec} for the sink operator.
+   *
+   * @param sinkFn  the sink function provided by the user
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @return  the {@link AsyncSinkOperatorSpec} for the sink operator
+   */
+  public static <M> AsyncSinkOperatorSpec<M> createAsyncSinkOperatorSpec(AsyncSinkFunction<? super M> sinkFn, String opId) {
+    return new AsyncSinkOperatorSpec<>((AsyncSinkFunction<M>) sinkFn, opId);
   }
 
   /**

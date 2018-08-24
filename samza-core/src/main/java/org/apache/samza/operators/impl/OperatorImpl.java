@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
@@ -37,6 +40,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.HighResolutionClock;
@@ -206,6 +210,50 @@ public abstract class OperatorImpl<M, RM> {
     }
   }
 
+  public final CompletableFuture<Void> onMessage(M message, MessageCollector collector, TaskCoordinator coordinator,
+      TaskCallback callback) {
+    this.numMessage.inc();
+    long startNs = this.highResClock.nanoTime();
+    CompletableFuture<Collection<RM>> completableResultsFuture;
+    try {
+      if (this instanceof AsyncStreamOperatorImpl) {
+        completableResultsFuture = ((AsyncStreamOperatorImpl) this).handleMessage(message, collector, coordinator, callback);
+      } else {
+        completableResultsFuture = CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
+      }
+    } catch (ClassCastException e) {
+      String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
+      String expectedType = e.getMessage().replaceFirst(".* cannot be cast to ", "");
+      throw new SamzaException(
+          String.format("Error applying operator %s (created at %s) to its input message. "
+                  + "Expected input message to be of type %s, but found it to be of type %s. "
+                  + "Are Serdes for the inputs to this operator configured correctly?",
+              getOpImplId(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
+    }
+
+    CompletableFuture<Void> result = completableResultsFuture.thenApply(results -> {
+        long endNs = this.highResClock.nanoTime();
+        this.handleMessageNs.update(endNs - startNs);
+        return results;
+      }).thenCompose(results -> {
+          List<CompletableFuture<Void>> futures = results.stream()
+              .flatMap(r -> this.registeredOperators.stream()
+                    .map(op -> op.onMessage(r, collector, coordinator, callback)))
+              .collect(Collectors.toList());
+          return CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+        });
+
+    result.thenAccept(x -> {
+        WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+        if (watermarkFn != null) {
+          // check whether there is new watermark emitted from the user function
+          Long outputWm = watermarkFn.getOutputWatermark();
+          propagateWatermark(outputWm, collector, coordinator);
+        }
+      });
+
+    return result;
+  }
   /**
    * Handle the incoming {@code message} and return the results to be propagated to registered operators.
    *

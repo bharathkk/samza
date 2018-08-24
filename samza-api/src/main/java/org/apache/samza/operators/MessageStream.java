@@ -23,6 +23,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.AsyncFilterFunction;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
+import org.apache.samza.operators.functions.AsyncMapFunction;
+import org.apache.samza.operators.functions.AsyncSinkFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -57,6 +61,16 @@ public interface MessageStream<M> {
   <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn);
 
   /**
+   * Applies the provided 1:1 function to messages in this {@link MessageStream} and returns the
+   * transformed {@link MessageStream}.
+   *
+   * @param asyncMapFn the function to transform a message to another message
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <OM> MessageStream<OM> asyncMap(AsyncMapFunction<? super M, ? extends OM> asyncMapFn);
+
+  /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
@@ -65,6 +79,16 @@ public interface MessageStream<M> {
    * @return the transformed {@link MessageStream}
    */
   <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
+
+  /**
+   * Applies the provided 1:n function to transform a message in this {@link MessageStream}
+   * to n messages in the transformed {@link MessageStream}
+   *
+   * @param asyncFlatMapFn the function to transform a message to zero or more messages
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <OM> MessageStream<OM> asyncFlatMap(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
@@ -79,6 +103,18 @@ public interface MessageStream<M> {
   MessageStream<M> filter(FilterFunction<? super M> filterFn);
 
   /**
+   * Applies the provided function to messages in this {@link MessageStream} and returns the
+   * filtered {@link MessageStream}.
+   * <p>
+   * The {@link AsyncFilterFunction} is a predicate which determines whether a message in this {@link MessageStream}
+   * should be retained in the filtered {@link MessageStream}.
+   *
+   * @param asyncFilterFn the predicate to filter messages from this {@link MessageStream}.
+   * @return the filtered {@link MessageStream}
+   */
+  MessageStream<M> asyncFilter(AsyncFilterFunction<? super M> asyncFilterFn);
+
+  /**
    * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
    * <p>
    * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
@@ -91,6 +127,20 @@ public interface MessageStream<M> {
    * @param sinkFn the function to send messages in this stream to an external system
    */
   void sink(SinkFunction<? super M> sinkFn);
+
+  /**
+   * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
+   * <p>
+   * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
+   * the {@link AsyncSinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
+   * {@link org.apache.samza.task.TaskCoordinator}.
+   * <p>
+   * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
+   * Samza SystemProducer implementation.
+   *
+   * @param asyncSinkFn the function to send messages in this stream to an external system
+   */
+  void asyncSink(AsyncSinkFunction<? super M> asyncSinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.

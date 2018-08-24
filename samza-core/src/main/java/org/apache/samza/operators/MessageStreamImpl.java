@@ -23,12 +23,18 @@ import java.time.Duration;
 import java.util.Collection;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.operators.functions.AsyncFilterFunction;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
+import org.apache.samza.operators.functions.AsyncMapFunction;
+import org.apache.samza.operators.functions.AsyncSinkFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.spec.AsyncSinkOperatorSpec;
+import org.apache.samza.operators.spec.AsyncStreamOperatorSpec;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -86,9 +92,25 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
+  public <TM> MessageStream<TM> asyncMap(AsyncMapFunction<? super M, ? extends TM> asyncMapFn) {
+    String opId = this.graph.getNextOpId(OpCode.MAP);
+    AsyncStreamOperatorSpec<M, TM> op = OperatorSpecs.createAsyncMapOperatorSpec(asyncMapFn, opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.graph, op);
+  }
+
+  @Override
   public MessageStream<M> filter(FilterFunction<? super M> filterFn) {
     String opId = this.graph.getNextOpId(OpCode.FILTER);
     StreamOperatorSpec<M, M> op = OperatorSpecs.createFilterOperatorSpec(filterFn, opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.graph, op);
+  }
+
+  @Override
+  public MessageStream<M> asyncFilter(AsyncFilterFunction<? super M> asyncFilterFn) {
+    String opId = this.graph.getNextOpId(OpCode.FILTER);
+    AsyncStreamOperatorSpec<M, M> op = OperatorSpecs.createAsyncFilterOperatorSpec(asyncFilterFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.graph, op);
   }
@@ -102,9 +124,24 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
+  public <TM> MessageStream<TM> asyncFlatMap(AsyncFlatMapFunction<? super M, ? extends TM> asyncFlatMapFn) {
+    String opId = this.graph.getNextOpId(OpCode.FLAT_MAP);
+    AsyncStreamOperatorSpec<M, TM> op = OperatorSpecs.createAsyncFlatMapOperatorSpec(asyncFlatMapFn, opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.graph, op);
+  }
+
+  @Override
   public void sink(SinkFunction<? super M> sinkFn) {
     String opId = this.graph.getNextOpId(OpCode.SINK);
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+  }
+
+  @Override
+  public void asyncSink(AsyncSinkFunction<? super M> asyncSinkFn) {
+    String opId = this.graph.getNextOpId(OpCode.SINK);
+    AsyncSinkOperatorSpec<M> op = OperatorSpecs.createAsyncSinkOperatorSpec(asyncSinkFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 

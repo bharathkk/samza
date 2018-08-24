@@ -18,14 +18,12 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.impl.InputOperatorImpl;
-import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
@@ -39,15 +37,8 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link OperatorSpecGraph}.
  */
-public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public class StreamOperatorTask extends BaseOperatorTask implements StreamTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
-
-  private final OperatorSpecGraph specGraph;
-  // TODO: to be replaced by proper scope of shared context factory in SAMZA-1714
-  private final ContextManager contextManager;
-  private final Clock clock;
-
-  private OperatorImplGraph operatorImplGraph;
 
   /**
    * Constructs an adaptor task to run the user-implemented {@link OperatorSpecGraph}.
@@ -57,40 +48,11 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * @param clock the {@link Clock} to use for time-keeping
    */
   public StreamOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager, Clock clock) {
-    this.specGraph = specGraph.clone();
-    this.contextManager = contextManager;
-    this.clock = clock;
+    super(specGraph, contextManager, clock);
   }
 
   public StreamOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    this(specGraph, contextManager, SystemClock.instance());
-  }
-
-  /**
-   * Initializes this task during startup.
-   * <p>
-   * Implementation: Initializes the runtime {@link OperatorImplGraph} according to user-defined {@link OperatorSpecGraph}.
-   * The {@link org.apache.samza.operators.StreamGraphSpec} sets the input and output streams and the task-wide
-   * context manager using the {@link org.apache.samza.operators.StreamGraph} APIs,
-   * and the logical transforms using the {@link org.apache.samza.operators.MessageStream} APIs. After the
-   * {@link org.apache.samza.operators.StreamGraphSpec} is initialized once by the application, it then creates
-   * an immutable {@link OperatorSpecGraph} accordingly, which is passed in to this class to create the {@link OperatorImplGraph}
-   * corresponding to the logical DAG.
-   *
-   * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
-   * @param context allows initializing and accessing contextual data of this StreamTask
-   * @throws Exception in case of initialization errors
-   */
-  @Override
-  public final void init(Config config, TaskContext context) throws Exception {
-
-    // get the user-implemented per task context manager and initialize it
-    if (this.contextManager != null) {
-      this.contextManager.init(config, context);
-    }
-
-    // create the operator impl DAG corresponding to the logical operator spec DAG
-    this.operatorImplGraph = new OperatorImplGraph(specGraph, config, context, clock);
+    super(specGraph, contextManager, SystemClock.instance());
   }
 
   /**
@@ -125,24 +87,5 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
           break;
       }
     }
-  }
-
-  @Override
-  public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
-    operatorImplGraph.getAllInputOperators()
-        .forEach(inputOperator -> inputOperator.onTimer(collector, coordinator));
-  }
-
-  @Override
-  public void close() throws Exception {
-    if (this.contextManager != null) {
-      this.contextManager.close();
-    }
-    operatorImplGraph.close();
-  }
-
-  /* package private for testing */
-  OperatorImplGraph getOperatorImplGraph() {
-    return this.operatorImplGraph;
   }
 }
