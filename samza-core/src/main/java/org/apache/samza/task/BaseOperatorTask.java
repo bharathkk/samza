@@ -78,11 +78,13 @@ public class BaseOperatorTask implements InitableTask, WindowableTask, ClosableT
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (this.contextManager != null) {
       this.contextManager.close();
     }
-    operatorImplGraph.close();
+    if (operatorImplGraph != null) {
+      operatorImplGraph.close();
+    }
   }
 
   /* package private for testing */

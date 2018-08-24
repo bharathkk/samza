@@ -29,6 +29,8 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.spec.AsyncSinkOperatorSpec;
+import org.apache.samza.operators.spec.AsyncStreamOperatorSpec;
 import org.apache.samza.util.TimestampedValue;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -218,8 +220,12 @@ public class OperatorImplGraph {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
       return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec);
+    } else if (operatorSpec instanceof AsyncStreamOperatorSpec) {
+      return new AsyncStreamOperatorImpl((AsyncStreamOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec, config, context);
+    } else if (operatorSpec instanceof AsyncSinkOperatorSpec) {
+      return new AsyncSinkOperatorImpl((AsyncSinkOperatorSpec) operatorSpec, config, context);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
       String streamId = ((OutputOperatorSpec) operatorSpec).getOutputStream().getStreamId();
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);

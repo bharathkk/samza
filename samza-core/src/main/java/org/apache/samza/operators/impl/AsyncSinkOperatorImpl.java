@@ -25,8 +25,8 @@ import java.util.concurrent.ExecutionException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.AsyncOperator;
-import org.apache.samza.operators.functions.AsyncFlatMapFunction;
-import org.apache.samza.operators.spec.AsyncStreamOperatorSpec;
+import org.apache.samza.operators.functions.AsyncSinkFunction;
+import org.apache.samza.operators.spec.AsyncSinkOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCallback;
@@ -34,51 +34,62 @@ import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
-public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> implements AsyncOperator<M, RM> {
-  private final AsyncStreamOperatorSpec<M, RM> streamOpSpec;
-  private final AsyncFlatMapFunction<M, RM> transformFn;
+/**
+ * An operator that sends incoming messages to an arbitrary output system using the provided {@link AsyncSinkFunction}.
+ */
+class AsyncSinkOperatorImpl<M> extends OperatorImpl<M, Void> implements AsyncOperator<M, Void> {
 
-  public AsyncStreamOperatorImpl(AsyncStreamOperatorSpec<M, RM> streamOpSpec) {
-    this.streamOpSpec = streamOpSpec;
-    transformFn = streamOpSpec.getTransformFn();
+  private final AsyncSinkOperatorSpec<M> sinkOpSpec;
+  private final AsyncSinkFunction<M> asyncSinkFn;
+
+  AsyncSinkOperatorImpl(AsyncSinkOperatorSpec<M> sinkOpSpec, Config config, TaskContext context) {
+    this.sinkOpSpec = sinkOpSpec;
+    this.asyncSinkFn = sinkOpSpec.getSinkFn();
   }
+
   @Override
   protected void handleInit(Config config, TaskContext context) {
+    this.asyncSinkFn.init(config, context);
   }
 
   @Override
-  protected Collection<RM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  public Collection<Void> handleMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     try {
       handle(message, collector, coordinator).get();
     } catch (InterruptedException | ExecutionException e) {
       throw new SamzaException(e);
     }
-
+    // there should be no further chained operators since this is a terminal operator.
     return Collections.emptyList();
   }
 
-  public final CompletableFuture<Collection<RM>> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
-    CompletableFuture<Collection<RM>> results = handle(message, collector, coordinator);
+  @Override
+  public CompletableFuture<Collection<Void>> handleMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator, TaskCallback callback) {
+    CompletableFuture<Collection<Void>> results =
+        handle(message, collector, coordinator)
+            .handle((val, ex) -> {
+                if (ex != null) {
+                  callback.failure(ex);
+                }
 
-    results.exceptionally(ex -> {
-        callback.failure(ex);
-        return Collections.emptyList();
-      });
+                return Collections.emptyList();
+              });
 
     return results;
   }
 
-  final CompletableFuture<Collection<RM>> handle(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    return transformFn.apply(message);
+  final CompletableFuture<Void> handle(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    return asyncSinkFn.apply(message, collector, coordinator);
   }
 
   @Override
   protected void handleClose() {
-
+    this.asyncSinkFn.close();
   }
 
-  @Override
-  protected OperatorSpec<M, RM> getOperatorSpec() {
-    return streamOpSpec;
+  protected OperatorSpec<M, Void> getOperatorSpec() {
+    return sinkOpSpec;
   }
 }
