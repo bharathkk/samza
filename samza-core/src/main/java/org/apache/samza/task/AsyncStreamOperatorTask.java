@@ -18,6 +18,7 @@
  */
 package org.apache.samza.task;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.OperatorSpecGraph;
@@ -48,7 +49,17 @@ public class AsyncStreamOperatorTask extends BaseOperatorTask implements AsyncSt
     if (inputOpImpl != null) {
       switch (MessageType.of(ime.getMessage())) {
         case USER_MESSAGE:
-          inputOpImpl.onMessage(KV.of(ime.getKey(), ime.getMessage()), collector, coordinator, callback);
+          CompletableFuture<Void>
+              future = inputOpImpl.onMessage(KV.of(ime.getKey(), ime.getMessage()), collector, coordinator, callback);
+
+          future.whenComplete((val, ex) -> {
+              if (ex != null) {
+                callback.failure(ex);
+              } else {
+                callback.complete();
+              }
+            });
+
           break;
 
         case END_OF_STREAM:
