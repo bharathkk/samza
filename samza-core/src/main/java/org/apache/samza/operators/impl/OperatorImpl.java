@@ -214,12 +214,14 @@ public abstract class OperatorImpl<M, RM> {
       TaskCallback callback) {
     this.numMessage.inc();
     long startNs = this.highResClock.nanoTime();
-    CompletableFuture<Collection<RM>> completableResultsFuture;
+    CompletableFuture<Collection<RM>> operatorResultsCompletableFuture;
     try {
       if (this instanceof AsyncStreamOperatorImpl) {
-        completableResultsFuture = ((AsyncStreamOperatorImpl) this).handleMessage(message, collector, coordinator, callback);
+        operatorResultsCompletableFuture =
+            ((AsyncStreamOperatorImpl<M, RM>) this).handleMessage(message, collector, coordinator, callback);
       } else {
-        completableResultsFuture = CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
+        operatorResultsCompletableFuture =
+            CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
       }
     } catch (ClassCastException e) {
       String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
@@ -231,19 +233,20 @@ public abstract class OperatorImpl<M, RM> {
               getOpImplId(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
     }
 
-    CompletableFuture<Void> result = completableResultsFuture.thenApply(results -> {
-        long endNs = this.highResClock.nanoTime();
-        this.handleMessageNs.update(endNs - startNs);
-        return results;
-      }).thenCompose(results -> {
-          List<CompletableFuture<Void>> futures = results.stream()
-              .flatMap(r -> this.registeredOperators.stream()
-                    .map(op -> op.onMessage(r, collector, coordinator, callback)))
-              .collect(Collectors.toList());
-          return CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
-        });
+    CompletableFuture<Void> operatorChainResultsCompletableFuture =
+        operatorResultsCompletableFuture.thenApply(results -> {
+            long endNs = this.highResClock.nanoTime();
+            this.handleMessageNs.update(endNs - startNs);
+            return results;
+          }).thenCompose(results -> {
+              List<CompletableFuture<Void>> futures = results.stream()
+                .flatMap(result -> this.registeredOperators.stream()
+                      .map(op -> op.onMessage(result, collector, coordinator, callback)))
+                .collect(Collectors.toList());
+              return CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+            });
 
-    result.thenAccept(x -> {
+    operatorChainResultsCompletableFuture.thenAccept(x -> {
         WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
         if (watermarkFn != null) {
           // check whether there is new watermark emitted from the user function
@@ -252,7 +255,7 @@ public abstract class OperatorImpl<M, RM> {
         }
       });
 
-    return result;
+    return operatorChainResultsCompletableFuture;
   }
   /**
    * Handle the incoming {@code message} and return the results to be propagated to registered operators.

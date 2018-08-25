@@ -49,7 +49,7 @@ public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> implemen
   @Override
   protected Collection<RM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
     try {
-      handle(message, collector, coordinator).get();
+      handle(message).get();
     } catch (InterruptedException | ExecutionException e) {
       throw new SamzaException(e);
     }
@@ -58,7 +58,7 @@ public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> implemen
   }
 
   public final CompletableFuture<Collection<RM>> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
-    CompletableFuture<Collection<RM>> results = handle(message, collector, coordinator);
+    CompletableFuture<Collection<RM>> results = handle(message);
 
     results.exceptionally(ex -> {
         callback.failure(ex);
@@ -68,7 +68,7 @@ public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> implemen
     return results;
   }
 
-  final CompletableFuture<Collection<RM>> handle(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  final CompletableFuture<Collection<RM>> handle(M message) {
     return transformFn.apply(message);
   }
 

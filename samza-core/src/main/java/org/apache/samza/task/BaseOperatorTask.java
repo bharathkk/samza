@@ -32,15 +32,15 @@ public class BaseOperatorTask implements InitableTask, WindowableTask, ClosableT
   private final ContextManager contextManager;
   private final Clock clock;
 
-  protected OperatorImplGraph operatorImplGraph;
+  OperatorImplGraph operatorImplGraph;
 
-  public BaseOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager, Clock clock) {
+  BaseOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager, Clock clock) {
     this.specGraph = specGraph;
     this.contextManager = contextManager;
     this.clock = clock;
   }
 
-  public BaseOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager) {
+  BaseOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager) {
     this(specGraph, contextManager, SystemClock.instance());
   }
 
@@ -60,7 +60,7 @@ public class BaseOperatorTask implements InitableTask, WindowableTask, ClosableT
    * @throws Exception in case of initialization errors
    */
   @Override
-  public final void init(Config config, TaskContext context) throws Exception {
+  public final void init(Config config, TaskContext context) {
 
     // get the user-implemented per task context manager and initialize it
     if (this.contextManager != null) {
